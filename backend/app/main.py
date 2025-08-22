@@ -2,6 +2,8 @@ from fastapi import FastAPI, Request, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import os, json, httpx
+from pathlib import Path
+import uvicorn
 from pypdf import PdfReader
 
 # Create the FastAPI app
@@ -158,3 +160,29 @@ async def ingest(files: list[UploadFile] = File(...)):
         })
 
     return {"accepted": len(files), "results": results}
+
+# --- Dev entrypoint with auto-reload (run this file directly) ---
+if __name__ == "__main__":
+
+    # Where this file lives: .../backend/app/main.py
+    HERE = Path(__file__).resolve()
+    BACKEND_DIR = HERE.parent.parent  # .../backend
+    APP_DIR = BACKEND_DIR / "app"
+
+    # Ensure the working dir is the backend root so "app.main:app" imports cleanly
+    os.chdir(BACKEND_DIR)
+
+    # Configurable via env if you want
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8000"))
+    reload_on = os.getenv("RELOAD", "1") == "1" # set to "0" to disable
+
+    uvicorn.run(
+        "app.main:app",            # import string is required for reload to work
+        host=host,
+        port=port,
+        reload=reload_on,          # toggle with RELOAD=0 to disable
+        reload_dirs=[str(APP_DIR)],# watch the app/ folder
+        reload_excludes=["data/*", "**/__pycache__/**"],
+        log_level=os.getenv("LOG_LEVEL", "info"),
+    )
